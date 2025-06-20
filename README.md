@@ -18,35 +18,21 @@
 - **Fonts**: Geist (Vercel's custom font)
 
 
-### 1. Clone the Repository
+## Install Dependencies
 
-```bash
-git clone <your-repo-url>
-cd specscraft
-```
-
-### 2. Install Dependencies
-
-```bash
 npm install
 
-### 3. Environment Setup
+### Environment Setup
 
 Create a `.env.local` file in the root directory:
 
-```bash
-touch .env.local
-```
-
 Add the following environment variable:
 
-```env
+## env
 NEXT_PUBLIC_BASE_URL=http://localhost:3000(the port you are running the app)
-```
 
 ### 4. Run the Development Server
 
-```bash
 npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
@@ -57,16 +43,16 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 The application supports custom content blocks within blog posts using the syntax:
 
-```markdown
+markdown
 {{block name="Block Title" image="image-url" products="SKU123,SKU456"}}
-```
+
 
 ###  Blog Post Management
 
 - **Create Posts**: `/create` - Form to create new blog posts
 - **View Posts**: `/posts/[slug]` - Individual blog post pages
 - **Edit Posts**: `/edit/[id]` - Edit existing blog posts
-- **List Posts**: `/` - Homepage with all blog posts
+- **List Posts**: `/` - Homepage with all blog posts (as we are storing in memory in vercel we cant see posts updated memory)
 
 ###  API Endpoints (Create and Edit is in-memory right now)
 
