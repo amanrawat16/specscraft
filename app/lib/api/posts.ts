@@ -7,6 +7,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 export const getAllPosts = async () => {
   return await apiFetch<BlogPost[]>(`${BASE_URL}/api/posts`, {
     method: "GET",
+    next: {
+      revalidate: 0,
+    },
   });
 };
 

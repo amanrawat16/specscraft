@@ -3,10 +3,11 @@ import { getAllPosts } from "./lib/api/posts";
 import  BlogCard from "./components/ui/BlogCard";
 import CreatePostButton from "@/app/components/ui/CreatePostButton"
 import Link from "next/link";
+import { BlogPost } from "./types";
 
 export default async function Home() {
 
-  const posts = await getAllPosts();
+  const posts : BlogPost[] | undefined = await getAllPosts();
 
   return (
       <main className="container mx-auto py-10 px-4">
