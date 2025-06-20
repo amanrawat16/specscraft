@@ -4,7 +4,7 @@ export interface BlogPost {
   title: string;
   author: string;
   body: string;
-  coverImage?: string;
+  coverImage: string;
   publishedAt: string;
   slug: string;
 }

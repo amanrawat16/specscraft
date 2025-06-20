@@ -14,8 +14,6 @@ export default async function BlogDetailPage({params}: Props){
     const post : BlogPost | undefined = await getPostBySlug(params.slug)
 
     if(!post) return notFound()
-
-    // const parsedContent = parseBlocks(post.body) 
     
     return (
     <main className="container mx-auto px-4 py-10">
