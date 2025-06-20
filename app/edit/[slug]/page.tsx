@@ -1,14 +1,19 @@
+// app/edit/[slug]/page.tsx
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { PostService } from "@/app/lib/services";
 import { BlogPost } from "@/app/types";
-import { motion } from "framer-motion";
+import { PostService } from "@/app/lib/services";
 import toast from "react-hot-toast";
 
-export default function CreatePostPage() {
+type Props = {
+  params: { slug: string};
+};
+
+export default function EditPostPage({ params }: Props) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const [form, setForm] = useState({
@@ -18,7 +23,12 @@ export default function CreatePostPage() {
     coverImage: "",
     body: "",
   });
-  const [loading, setLoading] = useState(false);
+  const [postAuthorId, setPostAuthorId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [unauthorized, setUnauthorized] = useState(false);
 
   // Check authentication status
   useEffect(() => {
@@ -26,15 +36,43 @@ export default function CreatePostPage() {
     
     if (!session) {
       // Redirect to sign in with a message
-      router.push("/auth/signin?message=Please sign in to create a blog post");
+      router.push("/auth/signin?message=Please sign in to edit blog posts");
       return;
     }
-
-    // Auto-fill author field with user's name
-    if (session.user.name) {
-      setForm(prev => ({ ...prev, author: session.user.name || "" }));
-    }
   }, [session, status, router]);
+
+  // Fetch post data by slug and check authorization
+  useEffect(() => {
+    if (!session) return; // Don't fetch if not authenticated
+    
+    async function fetchPost() {
+      try {
+        const post : any = await PostService.getPostBySlug(params.slug);
+        
+        // Check if user is the author of this post
+        if (post.authorId !== session?.user?.id) {
+          setUnauthorized(true);
+          setLoading(false);
+          return;
+        }
+
+        setPostAuthorId(post.authorId);
+        setForm({
+          title: post.title,
+          author: post.author,
+          slug: post.slug,
+          coverImage: post.coverImage,
+          body: post.body,
+        });
+      } catch (err: any) {
+        toast.error("Failed to load post.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchPost();
+  }, [params.slug, session]);
 
   // Show loading while checking authentication
   if (status === "loading") {
@@ -53,16 +91,47 @@ export default function CreatePostPage() {
     return null; // Will redirect in useEffect
   }
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
+  // Show unauthorized message if user doesn't own the post
+  if (unauthorized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center max-w-md mx-4">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+            <h1 className="text-xl font-bold text-red-600 dark:text-red-400 mb-4">
+              Access Denied
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              You can only edit posts that you created.
+            </p>
+            <button
+              onClick={() => router.push("/")}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="text-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400">Loading post...</p>
+      </div>
+    </div>
+  );
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const validateForm = () => {
-    if (!form.title.trim() || !form.slug.trim() || !form.body.trim()) {
-      return "Title, slug, and body are required.";
+    if (!form.title.trim() || !form.author.trim() || !form.slug.trim() || !form.body.trim()) {
+      return "All fields except cover image are required.";
     }
     if (form.coverImage && !form.coverImage.startsWith("http")) {
       return "Cover image must be a valid URL.";
@@ -77,24 +146,29 @@ export default function CreatePostPage() {
       return;
     }
 
-    setLoading(true);
+    setSaving(true);
     try {
-      // Use the authenticated user's name as author
-      const postData = {
-        ...form,
-        author: session.user.name || session.user.email || "Anonymous",
-      };
-
-      console.log('Create page - sending data:', postData);
-
-      const result = await PostService.createPost(postData);
-      toast.success("Post created successfully!");
+      await PostService.updatePost(params.slug, form);
+      toast.success("Post updated successfully!");
       router.push("/");
     } catch (err: any) {
-      console.error('Create page - error:', err);
-      toast.error(err.message || "Something went wrong.");
+      toast.error("Failed to update post.");
     } finally {
-      setLoading(false);
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await PostService.deletePost(params.slug);
+      toast.success("Post deleted successfully!");
+      router.push("/");
+    } catch (err: any) {
+      toast.error("Failed to delete post.");
+      setShowDeleteConfirm(false);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -104,9 +178,9 @@ export default function CreatePostPage() {
         <div className="max-w-2xl mx-auto">
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
             <div className="text-center mb-8">
-              <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Create New Post</h1>
+              <h1 className="text-2xl font-bold mb-2 text-gray-900 dark:text-white">Edit Post</h1>
               <p className="text-gray-600 dark:text-gray-400">
-                Welcome, {session.user.name || session.user.email}!
+                Update your blog post content
               </p>
             </div>
 
@@ -126,7 +200,7 @@ export default function CreatePostPage() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Author
+                  Author *
                 </label>
                 <input
                   name="author"
@@ -134,9 +208,7 @@ export default function CreatePostPage() {
                   value={form.author}
                   onChange={handleChange}
                   className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  readOnly
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Automatically filled with your name</p>
               </div>
               
               <div>
@@ -150,7 +222,6 @@ export default function CreatePostPage() {
                   onChange={handleChange}
                   className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">URL-friendly version of your title</p>
               </div>
               
               <div>
@@ -188,17 +259,52 @@ export default function CreatePostPage() {
                   Cancel
                 </button>
                 <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Delete
+                </button>
+                <button
                   onClick={handleSubmit}
-                  disabled={loading}
+                  disabled={saving}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? "Creating..." : "Create Post"}
+                  {saving ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700 max-w-md mx-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Delete Post
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete this post? This action cannot be undone.
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

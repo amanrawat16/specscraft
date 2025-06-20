@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "./components/layout/Navbar";
+import { Providers } from "./providers/Providers";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -15,7 +16,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Specsaft Blog",
+  title: "Specscraft Blog",
   description: "Content driven UI for blogs",
 };
 
@@ -27,9 +28,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased dark:bg-gray-950 dark:text-white`}>
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <Providers>
           <Navbar/>
-        <main>{children}</main>
+          <main>{children}</main>
+        </Providers>
       </body>
     </html>
   );
