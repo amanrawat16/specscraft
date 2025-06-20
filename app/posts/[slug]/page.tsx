@@ -1,7 +1,8 @@
-import { PostService } from "@/app/lib/services";
+import { prisma } from "@/app/lib/prisma";
 import ClientPostDetail from "@/app/components/ClientPostDetail";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { BlogPost } from "@/app/types";
 
 // Skeleton loading component
 function PostDetailSkeleton() {
@@ -44,12 +45,35 @@ export default async function PostDetailPage({ params }: PostDetailPageProps) {
   const { slug } = params;
   
   try {
-    // Fetch post data on the server
-    const post = await PostService.getPostBySlug(slug);
+    // Fetch post data directly from database (server-side)
+    const dbPost = await prisma.post.findUnique({
+      where: { slug },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
     
-    if (!post) {
+    if (!dbPost) {
       notFound();
     }
+    
+    // Transform the data to match the expected format
+    const post: BlogPost = {
+      id: dbPost.id,
+      title: dbPost.title,
+      slug: dbPost.slug,
+      author: dbPost.author.name || dbPost.author.email || 'Anonymous',
+      authorId: dbPost.authorId,
+      body: dbPost.body,
+      coverImage: dbPost.coverImage || '',
+      publishedAt: dbPost.publishedAt.toISOString(),
+    };
     
     return (
       <Suspense fallback={<PostDetailSkeleton />}>

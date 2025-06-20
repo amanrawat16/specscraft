@@ -1,6 +1,7 @@
-import { PostService } from "./lib/services";
+import { prisma } from "./lib/prisma";
 import ClientHomePage from "./components/ClientHomePage";
 import { Suspense } from "react";
+import { BlogPost } from "./types";
 
 // Skeleton loading component
 function PostsSkeleton() {
@@ -35,8 +36,38 @@ function PostsSkeleton() {
 
 // Server component
 export default async function Home() {
-  // Fetch posts on the server
-  const posts = await PostService.getAllPosts();
+  // Fetch posts directly from database (server-side)
+  let posts: BlogPost[] = [];
+  try {
+    const dbPosts = await prisma.post.findMany({
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        publishedAt: 'desc',
+      },
+    });
+
+    // Transform the data to match the expected format
+    posts = dbPosts.map(post => ({
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      author: post.author.name || post.author.email || 'Anonymous',
+      authorId: post.authorId,
+      body: post.body,
+      coverImage: post.coverImage || '',
+      publishedAt: post.publishedAt.toISOString(),
+    }));
+  } catch (error) {
+    console.error('Error fetching posts:', error);
+  }
   
   return (
     <Suspense fallback={<PostsSkeleton />}>
