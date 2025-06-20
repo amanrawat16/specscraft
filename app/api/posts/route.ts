@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
+    // Test database connection
+    await prisma.$connect();
+    
     const posts = await prisma.post.findMany({
       include: {
         author: {
@@ -34,14 +37,26 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching posts:', error);
     
-    // Return empty array instead of error if no posts found
-    if (error instanceof Error && error.message.includes('Record to find does not exist')) {
-      return NextResponse.json([]);
+    // Log specific database connection errors
+    if (error instanceof Error) {
+      if (error.message.includes('P1001') || error.message.includes('connect')) {
+        console.error('Database connection failed:', error.message);
+        return NextResponse.json(
+          { error: 'Database connection failed. Please check your DATABASE_URL configuration.' },
+          { status: 500 }
+        );
+      }
+      
+      if (error.message.includes('Record to find does not exist')) {
+        return NextResponse.json([]);
+      }
     }
     
     return NextResponse.json(
       { error: 'Failed to fetch posts' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
